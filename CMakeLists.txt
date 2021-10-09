@@ -26,4 +26,9 @@ add_executable(sync_test
 )
 target_link_libraries(sync_test pthread)
 
+add_executable(demo
+  demo_main.cpp
+)
+target_link_libraries(demo pthread)
+
 
