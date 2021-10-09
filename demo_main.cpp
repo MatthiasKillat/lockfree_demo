@@ -3,6 +3,7 @@
 #include "demo/d3_index_pool.hpp"
 #include "demo/d4_take_buffer.hpp"
 #include "demo/d5_read_buffer.hpp"
+#include "demo/d6_read_buffer.hpp"
 
 #include <atomic>
 #include <iostream>
@@ -109,8 +110,57 @@ int main(int argc, char **argv) {
   }
 
   {
+    cout << "\nnon-lockfree read" << endl;
+    not_lockfree::ReadBuffer<int> buffer;
+
+    auto maybe = buffer.read1();
+    print(maybe);
+
+    maybe = buffer.read2();
+    print(maybe);
+
+    buffer.write(73);
+
+    maybe = buffer.read1();
+    print(maybe);
+
+    maybe = buffer.read1();
+    print(maybe);
+
+    maybe = buffer.read2();
+    print(maybe);
+  }
+
+  {
     cout << "\nlockfree read" << endl;
     lockfree::ReadBuffer<int> buffer;
+
+    auto maybe = buffer.read1();
+    print(maybe);
+
+    maybe = buffer.read2();
+    print(maybe);
+
+    maybe = buffer.write(73);
+    print(maybe);
+
+    maybe = buffer.read1();
+    print(maybe);
+
+    maybe = buffer.read1();
+    print(maybe);
+
+    maybe = buffer.read2();
+    print(maybe);
+
+    maybe = buffer.take();
+    print(maybe);
+
+    maybe = buffer.read1();
+    print(maybe);
+
+    maybe = buffer.read2();
+    print(maybe);
   }
   return 0;
 }

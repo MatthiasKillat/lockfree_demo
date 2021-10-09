@@ -8,12 +8,12 @@
 
 // lesson: manage our own memory
 // lesson transfer ownership between buffers
-namespace lockfree {
+namespace not_lockfree {
 
 template <class T, uint32_t C = 8> class ReadBuffer {
 private:
   using storage_t = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
-  using indexpool_t = IndexPool<C>;
+  using indexpool_t = lockfree::IndexPool<C>;
   // LESSON: prefer indices to pointers (better control, fewer bits needed, bits
   // are precious in CAS)
   using index_t = typename indexpool_t::index_t;
@@ -77,15 +77,30 @@ public:
     return ret;
   }
 
-  std::optional<T> read() {
-    auto index = m_index.exchange(NO_DATA);
+  std::optional<T> read1() {
+    auto index = m_index.load();
     if (index == NO_DATA) {
       return std::nullopt;
     }
-    // copy is unavoidable if the structure owns the buffer (no move)
-    auto ret = std::optional<T>(std::move(*ptr(index)));
-    free(index);
+    // cannot read while it could change concurrently
+    auto ret = std::optional<T>(*ptr(index));
     return ret;
+  }
+
+  std::optional<T> read2() {
+    auto index = m_index.load();
+
+    while (index != NO_DATA) {
+      auto ret = std::optional<T>(*ptr(index));
+
+      // LESSON: check for no change - almost correct but we could have the ABA
+      // problem
+      if (m_index.compare_exchange_strong(index, index)) {
+        return ret;
+      }
+    }
+
+    return std::nullopt;
   }
 
 private:
@@ -97,32 +112,4 @@ private:
   T *ptr(index_t index) { return reinterpret_cast<T *>(&m_buffer[index]); }
 };
 
-} // namespace lockfree
-
-//   // what about just reading data without taking it?
-
-//   std::optional<T> read() {
-//     auto index = m_index.load(NO_DATA);
-//     if (index == NO_DATA) {
-//       return std::nullopt;
-//     }
-
-//     // fails: someone else may be modfiying it since we did not take the
-//     index
-//     // out (concurrent take, write at same index)
-//     return std::optional<T>(m_storage[index]);
-//   }
-
-//   // read buffer: assume we implement write (show), read(show)
-//   // ABA problem, e.g. for C = 2
-
-//   // T = (x, y);
-
-//   // buffer 73, 21@1, write?@2, write37,12@1, index changed from 1 -> 2 ->
-//   1
-//   // during read and content changed entirely from 73 to 21 we may have
-//   read 73
-//   // ... 12 or crash, if T is something like a list
-
-//   // -> T must be memcpyable and we need to detect the change!
-//   // if we detect a change, we just retry the operation
+} // namespace not_lockfree

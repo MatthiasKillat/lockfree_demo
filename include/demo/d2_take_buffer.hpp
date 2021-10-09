@@ -5,6 +5,8 @@
 
 template <class T> class Interface {
 
+  // TODO: variant where we overwrite and discard is better to present
+  // exercise: variant where write returns the old value
   // replace existing value and return old value if any
   virtual std::optional<T> write(const T &value) = 0;
 

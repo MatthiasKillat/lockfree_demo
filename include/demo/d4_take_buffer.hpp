@@ -87,31 +87,3 @@ private:
 };
 
 } // namespace lockfree
-
-//   // what about just reading data without taking it?
-
-//   std::optional<T> read() {
-//     auto index = m_index.load(NO_DATA);
-//     if (index == NO_DATA) {
-//       return std::nullopt;
-//     }
-
-//     // fails: someone else may be modfiying it since we did not take the
-//     index
-//     // out (concurrent take, write at same index)
-//     return std::optional<T>(m_storage[index]);
-//   }
-
-//   // read buffer: assume we implement write (show), read(show)
-//   // ABA problem, e.g. for C = 2
-
-//   // T = (x, y);
-
-//   // buffer 73, 21@1, write?@2, write37,12@1, index changed from 1 -> 2 ->
-//   1
-//   // during read and content changed entirely from 73 to 21 we may have
-//   read 73
-//   // ... 12 or crash, if T is something like a list
-
-//   // -> T must be memcpyable and we need to detect the change!
-//   // if we detect a change, we just retry the operation
