@@ -6,13 +6,14 @@
 #include <optional>
 #include <type_traits>
 
-#include "demo/d3_index_pool.hpp"
+#include "demo/storage.hpp"
+#include "demo/index_pool.hpp"
 
 namespace lockfree {
 
 template <class T, uint32_t C = 8> class ReadBuffer {
 private:
-  using storage_t = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+  using storage_t = Storage<T, C>;
   using indexpool_t = lockfree::IndexPool<C>;
   using index_t = typename indexpool_t::index_t;
 
@@ -31,33 +32,18 @@ private:
 
   std::atomic<tagged_index> m_index{NO_DATA};
   indexpool_t m_indices;
-  storage_t m_buffer[C];
+  storage_t m_storage;
 
 public:
-  std::optional<tagged_index> copy_value(const T &value) {
-    auto maybe = m_indices.get();
-    if (!maybe) {
-      std::nullopt;
-      ;
-    }
-    auto index = maybe.value();
-    auto p = ptr(index);
-    new (p) T(value);
-
-    return tagged_index(index);
-  }
-
   bool write(const T &value) {
-
-    auto maybeIndex = copy_value(value);
+    auto maybeIndex = m_indices.get();
     if (!maybeIndex) {
-      return false;
+      return false; // no index
     }
+    tagged_index newIndex{maybeIndex.value()};
+    m_storage.store_at(value, newIndex.index);
 
-
-    tagged_index newIndex = maybeIndex.value();
     tagged_index old = m_index.load();
-
     do {
       newIndex.counter = old.counter + 1;
       if (m_index.compare_exchange_strong(old, newIndex)) {
@@ -67,14 +53,10 @@ public:
         return true;
       }
     } while (true);
-
-    return false;
+    return true;
   }
 
-  
-
   std::optional<T> take() {
-
     tagged_index newIndex(NO_DATA);
     auto old = m_index.load();
 
@@ -82,7 +64,7 @@ public:
       newIndex.counter = old.counter + 1;
       if (m_index.compare_exchange_strong(old, newIndex)) {
         if (old.index != NO_DATA) {
-          return std::optional<T>(std::move(*ptr(old.index)));
+          return std::optional<T>(std::move(m_storage[old.index]));
         } else {
           return std::nullopt;
         }
@@ -91,24 +73,11 @@ public:
 
     return std::nullopt;
   }
-#if 0
-  std::optional<T> take() {
-    // can reset the counter
-    auto old = m_index.exchange(tagged_index(NO_DATA));
-    if (old.index == NO_DATA) {
-      return std::nullopt;
-    }
-    auto ret = std::optional<T>(std::move(*ptr(old.index)));
-    free(old.index);
-    return ret;
-  }
-#endif
-  std::optional<T> read1() {
+
+  std::optional<T> read() {
     auto old = m_index.load();
     while (old.index != NO_DATA) {
-      auto ret = std::optional<T>(*ptr(old.index));
-      // (almost) solved the ABA problem but
-      // we still invoke a copy ctor and could crash while reading
+      auto ret = std::optional<T>(m_storage[old.index]);     
 
       if (m_index.compare_exchange_strong(old, old)) {
         return ret;
@@ -120,33 +89,11 @@ public:
     return std::nullopt;
   }
 
-  std::optional<T> read2() {
-    auto old = m_index.load();
-    storage_t readBuffer;
-    while (old.index != NO_DATA) {
-      T *dest = reinterpret_cast<T *>(&readBuffer);
-      // with a modified optional we could copy directly into the optional
-      std::memcpy(dest, ptr(old.index), sizeof(T));
-      auto ret = std::optional<T>(*dest);
-
-      if (m_index.compare_exchange_strong(old, old)) {
-        return ret;
-      }
-    }
-
-    return std::nullopt;
-  }
-
-  // can we concurrently read in a lock-free manner without requiring T to be
-  // trivially copyable?
-
 private:
   void free(index_t index) {
-    ptr(index)->~T();
-    m_indices.free(index);
+      m_storage.free(index);
+      m_indices.free(index);
   }
-
-  T *ptr(index_t index) { return reinterpret_cast<T *>(&m_buffer[index]); }
 };
 
 } // namespace lockfree

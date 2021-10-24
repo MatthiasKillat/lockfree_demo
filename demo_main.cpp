@@ -1,6 +1,6 @@
 #include "demo/d1_cas_loop.hpp"
 #include "demo/d2_take_buffer.hpp"
-#include "demo/d3_index_pool.hpp"
+#include "demo/index_pool.hpp"
 #include "demo/d4_take_buffer.hpp"
 #include "demo/d5_read_buffer.hpp"
 #include "demo/d6_read_buffer.hpp"
@@ -137,31 +137,31 @@ int main(int argc, char **argv) {
     cout << "\nlockfree read" << endl;
     lockfree::ReadBuffer<int> buffer;
 
-    auto maybe = buffer.read1();
+    auto maybe = buffer.read();
     print(maybe);
 
-    maybe = buffer.read2();
+    maybe = buffer.read();
     print(maybe);
 
     maybe = buffer.write(73);
     print(maybe);
 
-    maybe = buffer.read1();
+    maybe = buffer.read();
     print(maybe);
 
-    maybe = buffer.read1();
+    maybe = buffer.read();
     print(maybe);
 
-    maybe = buffer.read2();
+    maybe = buffer.read();
     print(maybe);
 
     maybe = buffer.take();
     print(maybe);
 
-    maybe = buffer.read1();
+    maybe = buffer.read();
     print(maybe);
 
-    maybe = buffer.read2();
+    maybe = buffer.read();
     print(maybe);
   }
   return 0;
