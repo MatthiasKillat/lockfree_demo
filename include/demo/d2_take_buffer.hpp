@@ -8,7 +8,7 @@ template <class T> class Interface {
   // TODO: variant where we overwrite and discard is better to present
   // exercise: variant where write returns the old value
   // replace existing value and return old value if any
-  virtual std::optional<T> write(const T &value) = 0;
+  virtual bool write(const T &value) = 0;
 
   // write value if buffer is empty
   // return true if successful, false otherwise
@@ -55,6 +55,28 @@ public:
     return std::nullopt;
   }
 
+  bool write1(const T &value) {
+    auto copy = new (std::nothrow) T(value);
+    if (copy == nullptr) {
+      return false;
+    }
+
+    auto oldValue = m_value.exchange(copy);
+
+    if (oldValue) {
+      delete oldValue;
+    }
+
+    return true;
+  }
+
+  // LESSON: built-in dynamic memory cannot be used
+  // not lockfree in general
+
+  // LESSON: prepare operation locally and finalize/make it observable with
+  // a single atomic operation
+  // if we do not expect to change a specific value, exchange is sufficient
+
   std::optional<T> take() {
     auto value = m_value.exchange(nullptr);
 
@@ -69,3 +91,5 @@ public:
 };
 #endif
 } // namespace not_lockfree
+
+// 5mins(10)

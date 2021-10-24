@@ -40,6 +40,20 @@ bool compare_exchange_if_not_equal(std::atomic<T> &location, const T &expected,
   return false;
 }
 
-// LESSON: can create other atomic operations like this (fetch_multiply etc.)
+int fetch_multiply(std::atomic<int> &location, const int &multiplier) {
+  int oldValue = location.load();
+
+  do {
+    int newValue{oldValue*multiplier};
+    if (location.compare_exchange_strong(oldValue, newValue)) {      
+      break;
+    }
+    // concurrent update occured, retry    
+  } while(true);
+
+  return oldValue;
+}
 
 } // namespace lockfree
+
+// 5mins

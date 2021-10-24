@@ -45,6 +45,23 @@ public:
     return std::nullopt;
   }
 
+    bool write1(const T &value) {
+    auto maybe = m_indices.get();
+    if (!maybe) {
+      return false; // no index
+    }
+    auto index = maybe.value();
+    auto p = ptr(index);
+    new (p) T(value);
+
+    auto oldIndex = m_index.exchange(index);
+    if (oldIndex != NO_DATA) {
+      free(oldIndex);
+    }
+
+    return true;
+  }
+
   bool try_write(const T &value) {
     auto maybe = m_indices.get();
     if (!maybe) {
@@ -87,3 +104,5 @@ private:
 };
 
 } // namespace lockfree
+
+// 8mins (23)

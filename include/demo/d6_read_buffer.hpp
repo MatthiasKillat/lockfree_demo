@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <cstring>
 #include <optional>
 #include <type_traits>
@@ -33,17 +34,29 @@ private:
   storage_t m_buffer[C];
 
 public:
-  bool write(const T &value) {
+  std::optional<tagged_index> copy_value(const T &value) {
     auto maybe = m_indices.get();
     if (!maybe) {
-      false;
+      std::nullopt;
+      ;
     }
     auto index = maybe.value();
     auto p = ptr(index);
     new (p) T(value);
 
+    return tagged_index(index);
+  }
+
+  bool write(const T &value) {
+
+    auto maybeIndex = copy_value(value);
+    if (!maybeIndex) {
+      return false;
+    }
+
+
+    tagged_index newIndex = maybeIndex.value();
     tagged_index old = m_index.load();
-    tagged_index newIndex(index);
 
     do {
       newIndex.counter = old.counter + 1;
@@ -58,6 +71,27 @@ public:
     return false;
   }
 
+  
+
+  std::optional<T> take() {
+
+    tagged_index newIndex(NO_DATA);
+    auto old = m_index.load();
+
+    while (old.index != NO_DATA) {
+      newIndex.counter = old.counter + 1;
+      if (m_index.compare_exchange_strong(old, newIndex)) {
+        if (old.index != NO_DATA) {
+          return std::optional<T>(std::move(*ptr(old.index)));
+        } else {
+          return std::nullopt;
+        }
+      }
+    };
+
+    return std::nullopt;
+  }
+#if 0
   std::optional<T> take() {
     // can reset the counter
     auto old = m_index.exchange(tagged_index(NO_DATA));
@@ -68,7 +102,7 @@ public:
     free(old.index);
     return ret;
   }
-
+#endif
   std::optional<T> read1() {
     auto old = m_index.load();
     while (old.index != NO_DATA) {
@@ -116,3 +150,5 @@ private:
 };
 
 } // namespace lockfree
+
+// 7mins (35mins)

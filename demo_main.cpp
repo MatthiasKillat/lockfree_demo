@@ -52,9 +52,11 @@ int main(int argc, char **argv) {
 
     maybe = buffer.write(73);
     print(maybe);
+    buffer.write1(73);
 
     maybe = buffer.write(37);
     print(maybe);
+    maybe = buffer.write1(37);
 
     maybe = buffer.take();
     print(maybe);
