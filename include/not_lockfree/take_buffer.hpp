@@ -3,8 +3,7 @@
 #include <atomic>
 #include <optional>
 
-template <class T> 
-class Interface {
+template <class T> class Interface {
 
   // TODO: variant where we overwrite and discard is better to present
   // exercise: variant where write returns the old value

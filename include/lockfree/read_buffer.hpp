@@ -6,8 +6,8 @@
 #include <optional>
 #include <type_traits>
 
-#include "demo/storage.hpp"
 #include "demo/index_pool.hpp"
+#include "demo/storage.hpp"
 
 namespace lockfree {
 
@@ -79,7 +79,7 @@ public:
   std::optional<T> read() {
     auto old = m_index.load();
     while (old.index != NO_DATA) {
-      auto ret = std::optional<T>(m_storage[old.index]);     
+      auto ret = std::optional<T>(m_storage[old.index]);
 
       if (m_index.compare_exchange_strong(old, old)) {
         return ret;
@@ -93,8 +93,8 @@ public:
 
 private:
   void free(index_t index) {
-      m_storage.free(index);
-      m_indices.free(index);
+    m_storage.free(index);
+    m_indices.free(index);
   }
 };
 

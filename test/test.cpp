@@ -1,7 +1,3 @@
 #include <gtest/gtest.h>
 
-
-TEST(Lockfree_Test, case1) {
-}
-
-
+TEST(Lockfree_Test, case1) {}

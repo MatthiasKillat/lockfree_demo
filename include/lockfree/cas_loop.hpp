@@ -19,8 +19,7 @@ bool compare_exchange_non_atomic(std::atomic<T> &location, T &expected,
 }
 
 } // namespace not_lockfree
-namespace lockfree
-{
+namespace lockfree {
 
 template <class T>
 bool compare_exchange_if_not_equal(std::atomic<T> &location, const T &expected,
@@ -44,15 +43,14 @@ int fetch_multiply(std::atomic<int> &value, const int &multiplier) {
 
   do {
     // local computation of new value
-    int newValue{oldValue*multiplier};
-    if (value.compare_exchange_strong(oldValue, newValue)) {      
+    int newValue{oldValue * multiplier};
+    if (value.compare_exchange_strong(oldValue, newValue)) {
       break;
     }
-    // concurrent update occurred, retry until success   
-  } while(true);
+    // concurrent update occurred, retry until success
+  } while (true);
 
   return oldValue;
 }
 
 } // namespace lockfree
-

@@ -1,9 +1,9 @@
 #include "demo/d1_cas_loop.hpp"
 #include "demo/d2_take_buffer.hpp"
-#include "demo/index_pool.hpp"
 #include "demo/d4_take_buffer.hpp"
 #include "demo/d5_read_buffer.hpp"
 #include "demo/d6_read_buffer.hpp"
+#include "demo/index_pool.hpp"
 
 #include <atomic>
 #include <iostream>

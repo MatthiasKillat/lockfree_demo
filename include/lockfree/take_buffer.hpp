@@ -4,8 +4,8 @@
 #include <optional>
 #include <type_traits>
 
-#include "lockfree/storage.hpp"
 #include "lockfree/index_pool.hpp"
+#include "lockfree/storage.hpp"
 
 namespace lockfree {
 
@@ -22,7 +22,7 @@ private:
   indexpool_t m_indices;
   storage_t m_storage;
 
-public:  
+public:
   bool write(const T &value) {
     auto maybeIndex = m_indices.get();
     if (!maybeIndex) {
@@ -48,7 +48,7 @@ public:
     m_storage.store_at(value, index);
 
     index_t expected = NO_DATA;
-    if(!m_index.compare_exchange_strong(expected, index)) {
+    if (!m_index.compare_exchange_strong(expected, index)) {
       free(index);
       return false;
     }
@@ -59,17 +59,17 @@ public:
     auto index = m_index.exchange(NO_DATA);
     if (index == NO_DATA) {
       return std::nullopt;
-    }    
+    }
     auto ret = std::optional<T>(std::move(m_storage[index]));
     free(index);
     return ret;
   }
 
-  private:
-    void free(index_t index) {
-      m_storage.free(index);
-      m_indices.free(index);
-    }
+private:
+  void free(index_t index) {
+    m_storage.free(index);
+    m_indices.free(index);
+  }
 };
 
 } // namespace lockfree
