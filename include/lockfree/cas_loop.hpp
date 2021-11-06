@@ -27,7 +27,6 @@ bool compare_exchange_if_not_equal(std::atomic<T> &location, const T &expected,
                                    const T &newValue) {
   auto value = location.load();
 
-  // LESSON: CAS loops retry (reload and recompute) until operation succeeds
   while (value != expected) {
     if (location.compare_exchange_strong(value, newValue)) {
       // we exchanged since the value did not match the expected one

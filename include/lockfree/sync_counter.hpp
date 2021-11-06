@@ -16,8 +16,8 @@ public:
         m_count1 = 0;
         m_count2 = 0;
     }
-#if 0
-    void increment_commented()
+
+    void increment()
     {
         uint64_t count1 = m_count1.load();
         uint64_t count2 = m_count2.load();
@@ -30,19 +30,11 @@ public:
             // they may be different if we look right during another operation
 
             // determine whether there may be an incomplete operation
+            // (note that the counters may be out of sync due to load as well)
             while (count1 != count2)
-            {
-                //TODO: the counters may be out of sync in another way
-                // there is an incomplete operation, try to complete it
-
-                // optional invariant check (if not equal, this must hold)
-                // we cannot assume this due to the way the atomic loads work
-                // assert(count1 == count2 + 1);
-                // if (count1 != count2 + 1)
-                // {
-                //     std::terminate();
-                // }
-                // operation incomplete, count1 < count2 (count1 == count2 + 1)
+            {               
+                // there is an incomplete operation or the loads are outdated
+                //  try to complete it
 
                 // there is small optimization potential in the retry loads (at cost of readability)
 
@@ -56,7 +48,8 @@ public:
             if (m_count1.compare_exchange_strong(count1, count1 + 1))
             {
                 // we incremented m_count1
-                // partially complete, we will not try helping again but someone may help us
+                // our own operation is partially complete (count 1 incremented), 
+                // we will not try helping again but someone may help us
                 // we still need to increment m_count2
                 break;
             }
@@ -64,7 +57,7 @@ public:
             // we failed, someone else incremented m_count1 and potentially m_count2 concurrently, retry
         };
 
-        // add some sleep here to provoke incomplete operations with high probability
+        // could add some sleep here to provoke incomplete operations with high probability
 
         // finalize operation by incrementing second count
         // may fail, but only if someone else concurrently helps us and completes the operation for us
@@ -73,8 +66,8 @@ public:
         // we do not care for the result of CAS (either it worked because we incremented or someone else did it for us
         // and then we do not need to retry)
     }
-#endif
-
+#if 0
+    // uncommented version
     void increment()
     {
         uint64_t count1, count2;
@@ -98,15 +91,16 @@ public:
         sleep();
         m_count2.compare_exchange_strong(count2, count1 + 1);
     }
+#endif
 
     void unsynced_increment()
     {
-        m_count1.fetch_add(1);
+        ++m_count1;
         sleep();
-        m_count2.fetch_add(1);
+        ++m_count2;
     }
 
-    uint64_t sync_get()
+    uint64_t get_with_help()
     {
         uint64_t count1 = m_count1.load();
         uint64_t count2 = m_count2.load();
@@ -114,10 +108,12 @@ public:
         {
             try_help(count1, count2);
         }
+
+        // we only continue our operation if the invariant holds
         return count1;
     }
 
-    std::pair<uint64_t, uint64_t> get()
+    std::pair<uint64_t, uint64_t> get_if_equal()
     {
         uint64_t count1 = m_count1.load();
         uint64_t count2;
@@ -129,6 +125,7 @@ public:
     }
 
 private:
+
     using counter_t = std::atomic<uint64_t>;
     counter_t m_counters[1024]; // separation of counters by dummy memory
 
@@ -162,9 +159,9 @@ private:
         }
     }
 
-    void sleep()
+    void sleep(int ms = 1)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     }
 };
 

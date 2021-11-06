@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(lockfree_read_take)
+project(lockfree_demo)
 
 set(CMAKE_CXX_STANDARD 17) 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,5 +17,7 @@ include_directories( include )
 #   demo_main.cpp
 # )
 # target_link_libraries(demo pthread)
+
+add_subdirectory(test)
 
 
