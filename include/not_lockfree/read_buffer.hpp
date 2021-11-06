@@ -82,14 +82,11 @@ public:
 
     while (index != NO_DATA) {
       auto ret = std::optional<T>(m_storage[index]);
-
-      // LESSON: check for no change - almost correct but we could have the ABA
-      // problem
+      
       if (m_index.compare_exchange_strong(index, index)) {
         return ret;
       }
     }
-
     return std::nullopt;
   }
 
@@ -102,4 +99,3 @@ private:
 
 } // namespace not_lockfree
 
-// 5mins (28)

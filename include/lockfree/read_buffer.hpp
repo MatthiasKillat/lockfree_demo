@@ -1,275 +1,101 @@
 #pragma once
-#include "lockfree/index_pool.hpp"
 
-#include <cstring>
 #include <atomic>
+#include <chrono>
+#include <cstring>
 #include <optional>
+#include <type_traits>
 
-namespace broken
-{
+#include "demo/storage.hpp"
+#include "demo/index_pool.hpp"
 
-template <typename T>
-class ReadBuffer
-{
+namespace lockfree {
+
+template <class T, uint32_t C = 8> class ReadBuffer {
 private:
-    using storage_t = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
-    static constexpr uint32_t NUM_SLOTS = 16; //has influence on maximum concurrent writers that can be successful
+  using storage_t = Storage<T, C>;
+  using indexpool_t = lockfree::IndexPool<C>;
+  using index_t = typename indexpool_t::index_t;
 
-    // our simple memory manager
-    lockfree::IndexPool<NUM_SLOTS> m_indexpool; // contains indices from 0 to NUM_SLOTS-1
-    storage_t m_storage[NUM_SLOTS];
+  static constexpr index_t NO_DATA = C;
 
-    static constexpr uint32_t NO_DATA_INDEX = lockfree::IndexPool<NUM_SLOTS>::NO_INDEX;
-    using index_t = lockfree::IndexPool<NUM_SLOTS>::index_t;
+  struct tagged_index {
+    tagged_index(index_t index) : index(index) {}
+    tagged_index(index_t index, uint32_t counter)
+        : index(index), counter(counter) {}
+    index_t index;
+    uint32_t counter{0};
+  };
 
-    static_assert(std::is_trivially_copyable<T>::value);
-    static_assert(std::atomic<index_t>::is_always_lock_free);
+  static_assert(std::atomic<tagged_index>::is_always_lock_free);
+  static_assert(std::is_trivially_copyable<T>::value);
+
+  std::atomic<tagged_index> m_index{NO_DATA};
+  indexpool_t m_indices;
+  storage_t m_storage;
 
 public:
-    bool write(const T &data)
-    {
-        auto index = m_indexpool.get_index();
-        if (index == NO_DATA_INDEX)
-        {
-            return false; // no memory
+  bool write(const T &value) {
+    auto maybeIndex = m_indices.get();
+    if (!maybeIndex) {
+      return false; // no index
+    }
+    tagged_index newIndex{maybeIndex.value()};
+    m_storage.store_at(value, newIndex.index);
+
+    tagged_index old = m_index.load();
+    do {
+      newIndex.counter = old.counter + 1;
+      if (m_index.compare_exchange_strong(old, newIndex)) {
+        if (old.index != NO_DATA) {
+          free(old.index);
         }
-
-        copy_to_slot(index, data);
-
-        auto oldIndex = m_dataIndex.exchange(index);
-
-        if (oldIndex != NO_DATA_INDEX)
-        {
-            free_slot(oldIndex);
-        }
-
         return true;
-    }
+      }
+    } while (true);
+    return true;
+  }
 
-    bool try_write(const T &data)
-    {
-        auto index = m_indexpool.get_index();
-        if (index == NO_DATA_INDEX)
-        {
-            return false; // no memory
+  std::optional<T> take() {
+    // we basically write no data to the buffer
+    // and return its content (if any)
+    tagged_index newIndex(NO_DATA);
+    auto old = m_index.load();
+
+    while (old.index != NO_DATA) {
+      newIndex.counter = old.counter + 1;
+      if (m_index.compare_exchange_strong(old, newIndex)) {
+        if (old.index != NO_DATA) {
+          return std::optional<T>(std::move(m_storage[old.index]));
+        } else {
+          return std::nullopt;
         }
-
-        copy_to_slot(index, data);
-
-        uint32_t expected = NO_DATA_INDEX;
-        if (!m_dataIndex.compare_exchange_strong(expected, index))
-        {
-            free_slot(index);
-            return false;
-        }
-
-        return true;
-    }
-
-    std::optional<T> take()
-    {
-        auto index = m_dataIndex.exchange(NO_DATA_INDEX);
-        if (index == NO_DATA_INDEX)
-        {
-            return std::nullopt;
-        }
-
-        T *p = ptr(index);
-        std::optional ret(std::move(*p));
-        free_slot(index);
-        return ret;
-    }
-
-    std::optional<T> read()
-    {
-        auto index = m_dataIndex.load();
-
-        while (index != NO_DATA_INDEX)
-        {
-            T *p = ptr(index);
-            storage_t value;
-
-            //ideally we could copy into the optional (check whether it is possible with STL)
-            std::memcpy(&value, p, sizeof(T));
-
-            if (m_dataIndex.compare_exchange_strong(index, index))
-            {
-                // nothing changed (... except ABA)
-                return std::optional(*reinterpret_cast<T *>(&value));
-            }
-            // index changed during read
-            // retry (index is loaded implicitly)
-        }
-
-        return std::nullopt;
-    }
-
-private:
-    std::atomic<index_t>
-        m_dataIndex{NO_DATA_INDEX};
-
-    T *ptr(index_t index)
-    {
-        return reinterpret_cast<T *>(&m_storage[index]);
-    }
-
-    void copy_to_slot(index_t index, const T &data)
-    {
-        T *p = ptr(index);
-        new (p) T(data);
-    }
-
-    void free_slot(index_t index)
-    {
-        ptr(index)->~T();
-        m_indexpool.return_index(index);
-    }
-};
-
-} // namespace broken
-
-namespace lockfree
-{
-template <typename T>
-class ReadBuffer
-{
-private:
-    using storage_t = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
-    static constexpr uint32_t NUM_SLOTS = 16;
-
-    // our simple memory manager
-    lockfree::IndexPool<NUM_SLOTS> m_indexpool; // contains indices from 0 to NUM_SLOTS-1
-    storage_t m_storage[NUM_SLOTS];
-
-    static constexpr uint32_t NO_DATA_INDEX = lockfree::IndexPool<NUM_SLOTS>::NO_INDEX;
-    using index_t = lockfree::IndexPool<NUM_SLOTS>::index_t;
-
-    struct AugmentedIndex
-    {
-        AugmentedIndex(index_t index = 0) : index(index)
-        {
-        }
-
-        index_t index;
-        uint32_t counter{0};
-
-        operator index_t()
-        {
-            return index;
-        }
+      }
     };
 
-    static_assert(std::is_trivially_copyable<T>::value);
-    static_assert(std::atomic<AugmentedIndex>::is_always_lock_free);
+    return std::nullopt;
+  }
 
-public:
-    bool write(const T &data)
-    {
-        auto index = m_indexpool.get_index();
-        if (index == NO_DATA_INDEX)
-        {
-            return false; // no memory
-        }
+  std::optional<T> read() {
+    auto old = m_index.load();
+    while (old.index != NO_DATA) {
+      auto ret = std::optional<T>(m_storage[old.index]);     
 
-        copy_to_slot(index, data);
-
-        auto oldIndex = m_dataIndex.load();
-        AugmentedIndex newIndex(index);
-        do
-        {
-            newIndex.counter = oldIndex.counter + 1;
-        } while (!m_dataIndex.compare_exchange_strong(oldIndex, newIndex));
-
-        if (oldIndex != NO_DATA_INDEX)
-        {
-            free_slot(oldIndex);
-        }
-
-        return true;
-    }
-
-    bool try_write(const T &data)
-    {
-        auto index = m_indexpool.get_index();
-        if (index == NO_DATA_INDEX)
-        {
-            return false; // no memory
-        }
-
-        copy_to_slot(index, data);
-
-        auto oldIndex = m_dataIndex.load();
-        AugmentedIndex newIndex(index);
-        do
-        {
-            if (oldIndex != NO_DATA_INDEX)
-            {
-                free_slot(index);
-                return false;
-            }
-
-            newIndex.counter = oldIndex.counter + 1;
-        } while (!m_dataIndex.compare_exchange_strong(oldIndex, newIndex));
-
-        return true;
-    }
-
-    std::optional<T> take()
-    {
-        auto index = m_dataIndex.exchange(NO_DATA_INDEX);
-        if (index == NO_DATA_INDEX)
-        {
-            return std::nullopt;
-        }
-
-        T *p = ptr(index);
-        std::optional ret(std::move(*p));
-        free_slot(index);
+      if (m_index.compare_exchange_strong(old, old)) {
         return ret;
+      }
+      // if this failed either the index or the counter changed (due to a
+      // concurrent write)
     }
 
-    std::optional<T> read()
-    {
-        auto index = m_dataIndex.load();
-
-        while (index != NO_DATA_INDEX)
-        {
-            T *p = ptr(index);
-            storage_t value;
-
-            //ideally we could copy into the optional (check whether it is possible with STL)
-            std::memcpy(&value, p, sizeof(T));
-
-            if (m_dataIndex.compare_exchange_strong(index, index))
-            {
-                // nothing changed (... except ABA)
-                return std::optional(*reinterpret_cast<T *>(&value));
-            }
-            // index changed during read
-            // retry (index is loaded implicitly)
-        }
-
-        return std::nullopt;
-    }
+    return std::nullopt;
+  }
 
 private:
-    std::atomic<AugmentedIndex> m_dataIndex{NO_DATA_INDEX};
-
-    T *ptr(index_t index)
-    {
-        return reinterpret_cast<T *>(&m_storage[index]);
-    }
-
-    void copy_to_slot(index_t index, const T &data)
-    {
-        T *p = ptr(index);
-        new (p) T(data);
-    }
-
-    void free_slot(index_t index)
-    {
-        ptr(index)->~T();
-        m_indexpool.return_index(index);
-    }
+  void free(index_t index) {
+      m_storage.free(index);
+      m_indices.free(index);
+  }
 };
+
 } // namespace lockfree
