@@ -4,12 +4,12 @@
 #include <optional>
 #include <type_traits>
 
-#include "demo/index_pool.hpp"
-#include "demo/storage.hpp"
+#include "lockfree/index_pool.hpp"
+#include "lockfree/storage.hpp"
 
 namespace not_lockfree {
 
-template <class T, uint32_t C = 8> class ReadBuffer {
+template <class T, uint32_t C = 8> class ExchangeBuffer {
 private:
   using storage_t = lockfree::Storage<T, C>;
   using indexpool_t = lockfree::IndexPool<C>;
@@ -75,7 +75,7 @@ public:
     return ret;
   }
 
-  std::optional<T> read2() {
+  std::optional<T> read() {
     auto index = m_index.load();
 
     while (index != NO_DATA) {

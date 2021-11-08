@@ -38,7 +38,7 @@ bool compare_exchange_if_not_equal(std::atomic<T> &location, const T &expected,
   return false;
 }
 
-int fetch_multiply(std::atomic<int> &value, const int &multiplier) {
+int fetch_multiply(std::atomic<int> &value, int multiplier) {
   int oldValue = value.load();
 
   do {

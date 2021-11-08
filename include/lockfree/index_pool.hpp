@@ -43,4 +43,8 @@ private:
 }; // namespace lockfree
 } // namespace lockfree
 
-// 5mins (15)
+// note: in practice we would use a much faster and efficient allocator
+//       we can create a constant time lock-free allocator for T objects by
+//       using a lock-free index queue
+//
+//       note: iceoryx has such a queue

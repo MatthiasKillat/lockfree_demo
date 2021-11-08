@@ -6,12 +6,12 @@
 #include <optional>
 #include <type_traits>
 
-#include "demo/index_pool.hpp"
-#include "demo/storage.hpp"
+#include "lockfree/index_pool.hpp"
+#include "lockfree/storage.hpp"
 
 namespace lockfree {
 
-template <class T, uint32_t C = 8> class ReadBuffer {
+template <class T, uint32_t C = 8> class ExchangeBuffer {
 private:
   using storage_t = Storage<T, C>;
   using indexpool_t = lockfree::IndexPool<C>;
@@ -56,6 +56,26 @@ public:
     return true;
   }
 
+  bool try_write(const T &value) {
+    auto maybeIndex = m_indices.get();
+    if (!maybeIndex) {
+      return false; // no index
+    }
+    tagged_index newIndex{maybeIndex.value()};
+    m_storage.store_at(value, newIndex.index);
+
+    tagged_index old = m_index.load();
+    while (old.index == NO_DATA) {
+      newIndex.counter = old.counter + 1;
+      if (m_index.compare_exchange_strong(old, newIndex)) {
+        return true;
+      }
+    }
+
+    free(newIndex.index);
+    return false;
+  };
+
   std::optional<T> take() {
     // we basically write no data to the buffer
     // and return its content (if any)
@@ -96,6 +116,6 @@ private:
     m_storage.free(index);
     m_indices.free(index);
   }
-};
+}; // namespace lockfree
 
 } // namespace lockfree

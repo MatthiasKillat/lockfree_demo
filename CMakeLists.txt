@@ -8,15 +8,9 @@ add_compile_options("-O3")
 
 include_directories( include )
 
-# add_executable(sync_test
-#   sync_test_main.cpp
-# )
-# target_link_libraries(sync_test pthread)
-
-# add_executable(demo
-#   demo_main.cpp
-# )
-# target_link_libraries(demo pthread)
+add_executable(demo
+  demo_main.cpp
+)
 
 add_subdirectory(test)
 

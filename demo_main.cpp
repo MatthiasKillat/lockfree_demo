@@ -1,168 +1,179 @@
-#include "demo/d1_cas_loop.hpp"
-#include "demo/d2_take_buffer.hpp"
-#include "demo/d4_take_buffer.hpp"
-#include "demo/d5_read_buffer.hpp"
-#include "demo/d6_read_buffer.hpp"
-#include "demo/index_pool.hpp"
-
-#include <atomic>
 #include <iostream>
 
-using namespace lockfree;
+#include "lockfree/exchange_buffer.hpp"
+#include "lockfree/storage.hpp"
+#include "lockfree/take_buffer.hpp"
+#include "not_lockfree/exchange_buffer.hpp"
+#include "not_lockfree/take_buffer.hpp"
+#include "lockfree/cas_loop.hpp"
+
+namespace lf = lockfree;
+namespace nlf = not_lockfree;
 using namespace std;
 
-void print(std::optional<int> &maybe) {
-  if (maybe) {
-    std::cout << "got " << *maybe << std::endl;
+// TODO: gtest
+
+void end_case() { cout << "\n*********************" << endl; }
+
+template <typename Buffer> void write_take() {
+  cout << "WRITE - TAKE" << endl;
+  Buffer b;
+
+  auto result = b.take();
+  if (result) {
+    cout << "take " << *result << endl;
   } else {
-    std::cout << "got no value" << std::endl;
+    cout << "take nothing" << endl;
+  }
+
+  auto success = b.write(73);
+  if (success) {
+    cout << "write 73" << endl;
+  } else {
+    cout << "write failed" << endl;
+  }
+
+  success = b.write(37);
+  if (success) {
+    cout << "write 37" << endl;
+  } else {
+    cout << "write failed" << endl;
+  }
+
+  result = b.take();
+  if (result) {
+    cout << "take " << *result << endl;
+  } else {
+    cout << "take nothing" << endl;
+  }
+
+  result = b.take();
+  if (result) {
+    cout << "take " << *result << endl;
+  } else {
+    cout << "take nothing" << endl;
   }
 }
 
-void print_index(std::optional<uint32_t> &maybe) {
-  if (maybe) {
-    std::cout << "got index " << *maybe << std::endl;
+template <typename Buffer> void try_write_take() {
+  cout << "TRY_WRITE - TAKE" << endl;
+  Buffer b;
+
+  auto result = b.take();
+  if (result) {
+    cout << "take " << *result << endl;
   } else {
-    std::cout << "got no index" << std::endl;
+    cout << "take nothing" << endl;
+  }
+
+  auto success = b.try_write(73);
+  if (success) {
+    cout << "try write 73" << endl;
+  } else {
+    cout << "try write failed" << endl;
+  }
+
+  success = b.try_write(42);
+  if (success) {
+    cout << "try write 42" << endl;
+  } else {
+    cout << "try write failed" << endl;
+  }
+
+  result = b.take();
+  if (result) {
+    cout << "take " << *result << endl;
+  } else {
+    cout << "take nothing" << endl;
+  }
+
+  result = b.take();
+  if (result) {
+    cout << "take " << *result << endl;
+  } else {
+    cout << "take nothing" << endl;
+  }
+}
+
+void cas_loop() {  
+  std::atomic<int> a{3};  
+  cout << "a = " << a.load() << endl;
+  auto prev = lf::fetch_multiply(a, 4);
+  cout << "fetch_mutliply(a, 3) returns " << prev << endl; 
+  cout << "a = " << a.load() << endl;
+
+}
+
+template <typename Buffer> void write_read() {
+  cout << "WRITE - READ" << endl;
+  Buffer b;
+
+  auto result = b.read();
+  if (result) {
+    cout << "read " << *result << endl;
+  } else {
+    cout << "read nothing" << endl;
+  }
+
+  auto success = b.write(73);
+  if (success) {
+    cout << "write 73" << endl;
+  } else {
+    cout << "write failed" << endl;
+  }
+
+  result = b.read();
+  if (result) {
+    cout << "read " << *result << endl;
+  } else {
+    cout << "read nothing" << endl;
+  }
+
+  result = b.read();
+  if (result) {
+    cout << "read " << *result << endl;
+  } else {
+    cout << "read nothing" << endl;
   }
 }
 
 int main(int argc, char **argv) {
-  {
-    cout << "CAS loop" << endl;
-    std::atomic<int> atom{73};
-    cout << "atom = " << atom << endl;
-    compare_exchange_if_not_equal(atom, 73, 42);
-    cout << "atom = " << atom << endl;
-    compare_exchange_if_not_equal(atom, 37, 42);
-    cout << "atom = " << atom << endl;
+  cas_loop();
+  end_case();
 
-    int expected = 21;
-    not_lockfree::compare_exchange_non_atomic(atom, expected, 12);
-    cout << "atom = " << atom << " expected " << expected << endl;
-    not_lockfree::compare_exchange_non_atomic(atom, expected, 12);
-    cout << "atom = " << atom << " expected " << expected << endl;
-  }
+  cout << "NOT LOCK_FREE\n" << endl;
+  cout << "take buffer" << endl;
+  write_take<nlf::TakeBuffer<int>>();
+  end_case();
 
-  {
-    cout << "\nnon-lockfree take" << endl;
-    not_lockfree::TakeBuffer<int> buffer;
-    auto maybe = buffer.take();
-    print(maybe);
+  cout << "\nexchange buffer" << endl;
+  write_take<nlf::ExchangeBuffer<int>>();
+  end_case();
 
-    maybe = buffer.write(73);
-    print(maybe);
-    buffer.write1(73);
+  try_write_take<nlf::ExchangeBuffer<int>>();
+  end_case();
 
-    maybe = buffer.write(37);
-    print(maybe);
-    maybe = buffer.write1(37);
+  write_read<nlf::ExchangeBuffer<int>>();
+  end_case();
 
-    maybe = buffer.take();
-    print(maybe);
+  cout << "LOCK_FREE\n" << endl;
+  cout << "take buffer" << endl;
+  write_take<lf::TakeBuffer<int>>();
+  end_case();
 
-    maybe = buffer.take();
-    print(maybe);
-  }
+  try_write_take<lf::ExchangeBuffer<int>>();
+  end_case();
 
-  {
-    cout << "\nindex pool" << endl;
-    IndexPool<2> pool;
-    auto maybe1 = pool.get();
-    auto maybe2 = pool.get();
-    auto maybe3 = pool.get();
-    print_index(maybe1);
-    print_index(maybe2);
-    print_index(maybe3);
-    pool.free(*maybe2);
-    auto maybe4 = pool.get();
-    print_index(maybe4);
-  }
+  cout << "\nexchange buffer" << endl;
+  write_take<lf::ExchangeBuffer<int>>();
+  end_case();
 
-  {
-    cout << "\nlockfree take" << endl;
-    lockfree::TakeBuffer<int> buffer;
-    auto maybe = buffer.take();
-    print(maybe);
+  try_write_take<lf::ExchangeBuffer<int>>();
+  end_case();
 
-    maybe = buffer.write(73);
-    print(maybe);
+  write_read<lf::ExchangeBuffer<int>>();
+  end_case();
 
-    maybe = buffer.write(37);
-    print(maybe);
 
-    auto success = buffer.try_write(42);
-    if (!success) {
-      cout << "buffer full " << endl;
-    }
-
-    maybe = buffer.take();
-    print(maybe);
-
-    maybe = buffer.take();
-    print(maybe);
-
-    success = buffer.try_write(42);
-    if (!success) {
-      cout << "buffer full " << endl;
-    }
-
-    maybe = buffer.take();
-    print(maybe);
-  }
-
-  {
-    cout << "\nnon-lockfree read" << endl;
-    not_lockfree::ReadBuffer<int> buffer;
-
-    auto maybe = buffer.read1();
-    print(maybe);
-
-    maybe = buffer.read2();
-    print(maybe);
-
-    buffer.write(73);
-
-    maybe = buffer.read1();
-    print(maybe);
-
-    maybe = buffer.read1();
-    print(maybe);
-
-    maybe = buffer.read2();
-    print(maybe);
-  }
-
-  {
-    cout << "\nlockfree read" << endl;
-    lockfree::ReadBuffer<int> buffer;
-
-    auto maybe = buffer.read();
-    print(maybe);
-
-    maybe = buffer.read();
-    print(maybe);
-
-    maybe = buffer.write(73);
-    print(maybe);
-
-    maybe = buffer.read();
-    print(maybe);
-
-    maybe = buffer.read();
-    print(maybe);
-
-    maybe = buffer.read();
-    print(maybe);
-
-    maybe = buffer.take();
-    print(maybe);
-
-    maybe = buffer.read();
-    print(maybe);
-
-    maybe = buffer.read();
-    print(maybe);
-  }
-  return 0;
+  return EXIT_SUCCESS;
 }
