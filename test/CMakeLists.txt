@@ -13,7 +13,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 
 add_executable(lockfree_test
     main.cpp
-    test.cpp
+    exchange_buffer_test.cpp
 )
 
 target_link_libraries(lockfree_test  ${GTEST_LIBRARIES}  ${CMAKE_THREAD_LIBS_INIT} )

@@ -9,6 +9,9 @@
 
 namespace not_lockfree {
 
+// NB: not lock-free due to std::optional using dynamic memory
+// a static memory optional can be found e.g. in
+// https://github.com/eclipse-iceoryx/iceoryx/blob/master/iceoryx_hoofs/include/iceoryx_hoofs/cxx/optional.hpp
 template <class T, uint32_t C = 8> class ExchangeBuffer {
 private:
   using storage_t = lockfree::Storage<T, C>;
@@ -87,6 +90,8 @@ public:
     }
     return std::nullopt;
   }
+
+  bool empty() { return m_index.load() == NO_DATA; }
 
 private:
   void free(index_t index) {

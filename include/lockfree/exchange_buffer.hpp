@@ -111,6 +111,8 @@ public:
     return std::nullopt;
   }
 
+  bool empty() { return m_index.load().index == NO_DATA; }
+
 private:
   void free(index_t index) {
     m_storage.free(index);
