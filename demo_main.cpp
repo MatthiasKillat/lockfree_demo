@@ -1,11 +1,12 @@
 #include <iostream>
 
+#include "lockfree/cas_loop.hpp"
 #include "lockfree/exchange_buffer.hpp"
 #include "lockfree/storage.hpp"
 #include "lockfree/take_buffer.hpp"
+#include "not_lockfree/cas_semantics.hpp"
 #include "not_lockfree/exchange_buffer.hpp"
 #include "not_lockfree/take_buffer.hpp"
-#include "lockfree/cas_loop.hpp"
 
 namespace lf = lockfree;
 namespace nlf = not_lockfree;
@@ -95,13 +96,26 @@ template <typename Buffer> void try_write_take() {
   }
 }
 
-void cas_loop() {  
+void cas_loop() {
+  cout << "CAS LOOP" << endl;
   std::atomic<int> a{3};  
   cout << "a = " << a.load() << endl;
   auto prev = lf::fetch_multiply(a, 4);
   cout << "fetch_mutliply(a, 3) returns " << prev << endl; 
   cout << "a = " << a.load() << endl;
+}
 
+void cas_semantics() {
+  cout << "CAS SEMANTICS" << endl;
+  nlf::atomic<int> a{73};
+  cout << "a = " << a.load() << endl;
+
+  int expected{73};
+  a.compare_exchange_strong(expected, 37);
+  cout << "a = " << a.load() << endl;
+
+  a.compare_exchange_strong(expected, 42);
+  cout << "a = " << a.load() << endl;
 }
 
 template <typename Buffer> void write_read() {
@@ -138,6 +152,9 @@ template <typename Buffer> void write_read() {
 }
 
 int main(int argc, char **argv) {
+  cas_semantics();
+  end_case();
+
   cas_loop();
   end_case();
 

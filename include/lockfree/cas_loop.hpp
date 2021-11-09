@@ -2,23 +2,6 @@
 
 #include <atomic>
 
-// CAS semantics
-namespace not_lockfree {
-template <class T>
-bool compare_exchange_non_atomic(std::atomic<T> &location, T &expected,
-                                 const T &newValue) {
-  auto value = location.load();
-
-  if (value == expected) {
-    location.store(newValue);
-    return true;
-  }
-
-  expected = value;
-  return false;
-}
-
-} // namespace not_lockfree
 namespace lockfree {
 
 template <class T>
