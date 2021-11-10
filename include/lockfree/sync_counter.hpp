@@ -6,31 +6,31 @@
 #include <thread>
 
 namespace lockfree {
+
+// TODO: document and explain, restructure (.cpp etc.)
 class SyncCounter {
   static constexpr int N = 1024;
 
 public:
   SyncCounter();
 
+  // trigger increment of both counters
   void increment();
 
+  // unsynced increment without trying to equalize counters
   void unsynced_increment();
 
-  uint64_t sync_get();
+  // sync the counters before retrieving the value (they are both equal)
+  uint64_t sync();
 
+  // retrieve both values, sync to ensure they are equal (redundant)
   std::pair<uint64_t, uint64_t> get_if_equal();
-  {
-    uint64_t count1 = m_count1.load();
-    uint64_t count2;
-    do {
-      count2 = m_count2.load();
-    } while (!m_count1.compare_exchange_strong(count1, count1));
-    return {count1, count2};
-  }
 
 private:
   using counter_t = std::atomic<uint64_t>;
-  counter_t m_counters[1024]; // separation of counters by dummy memory
+  // separation of counters by dummy memory
+  // to have both counters in different cachelines
+  counter_t m_counters[4096];
 
   counter_t &m_count1;
   counter_t &m_count2;

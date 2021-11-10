@@ -87,7 +87,7 @@ void SyncCounter::unsynced_increment() {
   ++m_count2;
 }
 
-uint64_t SyncCounter::get_with_help() {
+uint64_t SyncCounter::sync() {
   uint64_t count1 = m_count1.load();
   uint64_t count2 = m_count2.load();
   while (count1 != count2) {
@@ -116,7 +116,6 @@ void SyncCounter::try_help(uint64_t &count1, uint64_t &count2) {
     return;
   }
 
-  // TODO: can we observe count2 > count1?
   if (m_count2.compare_exchange_strong(count1, count1)) {
     // we completed the operation, and can try our own increment again
     count2 = count1;
@@ -127,7 +126,7 @@ void SyncCounter::try_help(uint64_t &count1, uint64_t &count2) {
   }
 }
 
-void SyncCounter::sleep(int ms = 1) {
+void SyncCounter::sleep(int ms) {
   std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 

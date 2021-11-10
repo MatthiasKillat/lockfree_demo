@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
 #include "lockfree/exchange_buffer.hpp"
-#include "lockfree/take_buffer.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -31,7 +30,6 @@ constexpr int NUM_THREADS = NUM_WRITER_THREADS + NUM_READER_THREADS;
 
 constexpr std::chrono::seconds runtime(5);
 
-// using Buffer = lockfree::TakeBuffer<uint64_t, NUM_THREADS + 1>;
 using Buffer = lockfree::ExchangeBuffer<uint64_t, NUM_THREADS + 1>;
 
 void try_write(Buffer &buffer, std::atomic<bool> &run, int id, uint64_t &max) {

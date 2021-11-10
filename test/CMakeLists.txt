@@ -24,3 +24,12 @@ add_executable(exchange_buffer_stresstest
 )
 
 target_link_libraries(exchange_buffer_stresstest  ${GTEST_LIBRARIES}  ${CMAKE_THREAD_LIBS_INIT} )
+
+add_executable(sync_counter_stresstest
+    main.cpp
+    sync_counter_stresstest.cpp
+    ../src/sync_counter.cpp
+#this is not nice but will do for now
+)
+
+target_link_libraries(sync_counter_stresstest  ${GTEST_LIBRARIES}  ${CMAKE_THREAD_LIBS_INIT} )
