@@ -61,7 +61,10 @@ public:
     if (!maybeIndex) {
       return false; // no index
     }
+
     tagged_index newIndex{maybeIndex.value()};
+
+    // std::cout << "****" << newIndex.index << std::endl;
     m_storage.store_at(value, newIndex.index);
 
     tagged_index old = m_index.load();
@@ -86,7 +89,9 @@ public:
       newIndex.counter = old.counter + 1;
       if (m_index.compare_exchange_strong(old, newIndex)) {
         if (old.index != NO_DATA) {
-          return std::optional<T>(std::move(m_storage[old.index]));
+          auto ret = std::optional<T>(std::move(m_storage[old.index]));
+          free(old.index);
+          return ret;
         } else {
           return std::nullopt;
         }

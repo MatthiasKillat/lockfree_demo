@@ -10,6 +10,8 @@
 #include <atomic>
 #include <cmath>
 
+// TODO: to tests
+
 constexpr int NUM_THREADS = 32;
 void work(SyncCounter &counter, std::atomic<bool> &run, uint64_t &failures)
 {

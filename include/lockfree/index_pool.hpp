@@ -21,7 +21,7 @@ public:
 
   std::optional<index_t> get() {
     // single pass for simplicity
-    for (index_t index = 0; ++index; index < Size) {
+    for (index_t index = 0; index < Size; ++index) {
       auto expected = FREE;
       auto &slot = m_slots[index];
       if (slot.compare_exchange_strong(expected, USED)) {
