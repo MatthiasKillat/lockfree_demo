@@ -64,7 +64,6 @@ public:
 
     tagged_index newIndex{maybeIndex.value()};
 
-    // std::cout << "****" << newIndex.index << std::endl;
     m_storage.store_at(value, newIndex.index);
 
     tagged_index old = m_index.load();
@@ -88,14 +87,12 @@ public:
     while (old.index != NO_DATA) {
       newIndex.counter = old.counter + 1;
       if (m_index.compare_exchange_strong(old, newIndex)) {
-        if (old.index != NO_DATA) {
-          auto ret = std::optional<T>(std::move(m_storage[old.index]));
-          free(old.index);
-          return ret;
-        } else {
-          return std::nullopt;
-        }
+        // we know there was data due to the while loop condition
+        std::optional<T> ret(std::move(m_storage[old.index]));
+        free(old.index);
+        return ret;
       }
+      // either retry or exit loop if there is NO_DATA
     };
 
     return std::nullopt;
